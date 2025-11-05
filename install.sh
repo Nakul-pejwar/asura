@@ -106,7 +106,7 @@ go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
 
 # Tom Hudson's tools
 print_status "Installing additional Go tools..."
-go install -v github.com/tomnomnom/assetfinder@latest
+go install -v github.com/tomnomnom/assetfinder@latest 
 go install -v github.com/tomnomnom/waybackurls@latest
 go install -v github.com/tomnomnom/anew@latest
 go install -v github.com/lc/gau/v2/cmd/gau@latest

@@ -411,7 +411,7 @@ Examples:
     args = parser.parse_args()
     
     if not args.domain and not args.list:
-        parser.print_help()
+        parser.print_help() 
         sys.exit(1)
     
     # Initialize and run Asura
