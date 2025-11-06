@@ -93,6 +93,10 @@ fi
 mkdir -p ~/tools
 cd ~/tools
 
+# Update The System
+sudo apt update
+sudo apt install -y libpcap-dev
+
 # Install Go-based tools
 print_status "Installing reconnaissance tools..."
 
@@ -242,12 +246,12 @@ if [ $failed -eq 0 ]; then
     echo "Or if symbolic link was created:"
     echo -e "${GREEN}asura -d example.com -o output${NC}"
     echo ""
-    print_warning "Please restart your terminal or run: source ~/.bashrc"
+    print_warning "Please restart your terminal or run: source ~/.zshrc"
 else
     print_warning "$failed tool(s) failed to install. Please check errors above."
 fi
 
-# Source bashrc
-source ~/.bashrc 2>/dev/null || true
+# Source zshrc
+source ~/.zshrc 2>/dev/null || true
 
 exit 0

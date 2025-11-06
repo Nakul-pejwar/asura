@@ -36,6 +36,10 @@ source ~/.bashrc
 Install all required tools with the following commands:
 
 ```bash
+# Update The System
+sudo apt update
+sudo apt install -y libpcap-dev
+
 # Core Recon Tools
 go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
