@@ -50,15 +50,6 @@ sudo usermod -aG docker $USER
 python3 --version
 ```
 
-### Install Reconnaissance Tools
-```bash
-# Run the original Asura installer first
-chmod +x install.sh
-./install.sh
-
-# This installs: Subfinder, HTTPX, Nuclei, Katana, Amass, etc.
-```
-
 ### Install Asura AI
 ```bash
 # Clone repository
@@ -73,6 +64,16 @@ export ASURA_LLM="openai/gpt-4o"  # or "anthropic/claude-3-5-sonnet-20241022"
 export LLM_API_KEY="your-api-key-here"
 export DOCKER_ENABLED=true
 ```
+
+### Install Reconnaissance Tools
+```bash
+# Run the AsuraAI installer first
+chmod +x install.sh
+./install.sh
+
+# This installs: Subfinder, HTTPX, Nuclei, Katana, Amass, etc.
+```
+
 
 ### LLM Provider Setup
 
