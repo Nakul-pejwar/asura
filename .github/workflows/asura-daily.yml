@@ -1,0 +1,300 @@
+name: Asura AI Daily Bug Bounty Recon
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target domain (optional, uses targets.txt if empty)'
+        required: false
+      ai_instruction:
+        description: 'Custom AI instruction'
+        required: false
+        default: 'Focus on high-severity vulnerabilities'
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Cache Python packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install reconnaissance tools
+        run: |
+          # Install ProjectDiscovery tools
+          go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+          go install -v github.com/projectdiscovery/katana/cmd/katana@latest
+          go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+          go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+          
+          # Additional tools
+          go install -v github.com/tomnomnom/assetfinder@latest
+          go install -v github.com/tomnomnom/waybackurls@latest
+          go install -v github.com/tomnomnom/anew@latest
+          go install -v github.com/lc/gau/v2/cmd/gau@latest
+          
+          # Update Nuclei templates
+          nuclei -update-templates -silent
+          
+          # Add Go bin to PATH
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create targets file if not exists
+        run: |
+          if [ ! -f targets.txt ]; then
+            echo "example.com" > targets.txt
+          fi
+      
+      - name: Run Asura AI Reconnaissance
+        env:
+          ASURA_LLM: ${{ secrets.ASURA_LLM || 'gpt-4o' }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DOCKER_ENABLED: false  # Disable Docker in CI
+        run: |
+          if [ -n "${{ github.event.inputs.target }}" ]; then
+            # Manual trigger with specific target
+            python3 asura_ai.py \
+              -d "${{ github.event.inputs.target }}" \
+              -o output_$(date +%Y%m%d) \
+              --ai \
+              --poc \
+              --non-interactive \
+              --instruction "${{ github.event.inputs.ai_instruction }}" \
+              -t 30
+          else
+            # Scheduled run with targets file
+            python3 asura_ai.py \
+              -l targets.txt \
+              -o output_$(date +%Y%m%d) \
+              --ai \
+              --poc \
+              --non-interactive \
+              --instruction "Daily recon: prioritize new findings" \
+              -t 30
+          fi
+        continue-on-error: true
+        id: recon
+      
+      - name: Generate summary
+        if: always()
+        run: |
+          OUTPUT_DIR="output_$(date +%Y%m%d)"
+          
+          echo "## Asura AI Recon Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "$OUTPUT_DIR/subdomains/all_subdomains.txt" ]; then
+            SUBS=$(wc -l < "$OUTPUT_DIR/subdomains/all_subdomains.txt")
+            echo "- **Subdomains Found**: $SUBS" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "$OUTPUT_DIR/alive/alive_hosts.txt" ]; then
+            ALIVE=$(wc -l < "$OUTPUT_DIR/alive/alive_hosts.txt")
+            echo "- **Alive Hosts**: $ALIVE" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "$OUTPUT_DIR/endpoints/all_endpoints.txt" ]; then
+            ENDPOINTS=$(wc -l < "$OUTPUT_DIR/endpoints/all_endpoints.txt")
+            echo "- **Endpoints**: $ENDPOINTS" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "$OUTPUT_DIR/ai/validated_vulns.json" ]; then
+            VULNS=$(jq '. | length' "$OUTPUT_DIR/ai/validated_vulns.json")
+            echo "- **🔥 Validated Vulnerabilities**: $VULNS" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract critical vulns
+            CRITICAL=$(jq '[.[] | select(.ai_validation.severity == "Critical")] | length' "$OUTPUT_DIR/ai/validated_vulns.json")
+            HIGH=$(jq '[.[] | select(.ai_validation.severity == "High")] | length' "$OUTPUT_DIR/ai/validated_vulns.json")
+            
+            echo "  - Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+            echo "  - High: $HIGH" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Upload reconnaissance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: asura-recon-results-${{ github.run_number }}
+          path: |
+            output_*/reports/
+            output_*/ai/
+            output_*/artifacts/
+          retention-days: 30
+      
+      - name: Upload AI report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-hunt-report-${{ github.run_number }}
+          path: output_*/reports/ai_hunt_report_*.md
+          retention-days: 90
+      
+      - name: Check for critical vulnerabilities
+        id: check_critical
+        if: always()
+        run: |
+          OUTPUT_DIR="output_$(date +%Y%m%d)"
+          
+          if [ -f "$OUTPUT_DIR/ai/validated_vulns.json" ]; then
+            CRITICAL=$(jq '[.[] | select(.ai_validation.severity == "Critical")] | length' "$OUTPUT_DIR/ai/validated_vulns.json")
+            
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "critical_found=true" >> $GITHUB_OUTPUT
+              echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+            else
+              echo "critical_found=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+      
+      - name: Notify on Slack (Critical Vulns)
+        if: steps.check_critical.outputs.critical_found == 'true'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚨 Asura AI Alert",
+              attachments: [{
+                color: 'danger',
+                text: `Found ${{ steps.check_critical.outputs.critical_count }} CRITICAL vulnerabilities!\n\nCheck GitHub Actions artifacts for details.`,
+                fields: [{
+                  title: 'Workflow',
+                  value: '${{ github.workflow }}',
+                  short: true
+                }, {
+                  title: 'Run Number',
+                  value: '${{ github.run_number }}',
+                  short: true
+                }],
+                actions: [{
+                  type: 'button',
+                  text: 'View Results',
+                  url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+                }]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      - name: Notify on Discord (Critical Vulns)
+        if: steps.check_critical.outputs.critical_found == 'true' && secrets.DISCORD_WEBHOOK_URL
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "🚨 Asura AI Critical Alert",
+                "description": "Found ${{ steps.check_critical.outputs.critical_count }} CRITICAL vulnerabilities!",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "Workflow",
+                    "value": "${{ github.workflow }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Run",
+                    "value": "${{ github.run_number }}",
+                    "inline": true
+                  }
+                ],
+                "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
+      
+      - name: Create GitHub Issue for Critical Vulns
+        if: steps.check_critical.outputs.critical_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const outputDir = `output_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+            
+            let issueBody = '## 🚨 Critical Vulnerabilities Detected\n\n';
+            issueBody += `**Run**: #${{ github.run_number }}\n`;
+            issueBody += `**Date**: ${new Date().toISOString()}\n\n`;
+            issueBody += '### Summary\n\n';
+            issueBody += `Found **${{ steps.check_critical.outputs.critical_count }}** critical vulnerabilities.\n\n`;
+            issueBody += '### Next Steps\n\n';
+            issueBody += '1. Download artifacts from this workflow run\n';
+            issueBody += '2. Review AI report in `ai_hunt_report_*.md`\n';
+            issueBody += '3. Validate PoCs in `ai/poc_exploits/`\n';
+            issueBody += '4. Submit to bug bounty platform\n\n';
+            issueBody += `[View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Asura AI: ${context.payload.repository.critical_count} Critical Vulns Found`,
+              body: issueBody,
+              labels: ['security', 'critical', 'asura-ai']
+            });
+      
+      - name: Cleanup old artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const oldArtifacts = artifacts.data.artifacts
+              .filter(artifact => {
+                const age = Date.now() - new Date(artifact.created_at);
+                return age > 30 * 24 * 60 * 60 * 1000; // 30 days
+              });
+            
+            for (const artifact of oldArtifacts) {
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+            }
