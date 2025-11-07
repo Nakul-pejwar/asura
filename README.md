@@ -53,8 +53,8 @@ python3 --version
 ### Install Asura AI
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/asura-ai.git
-cd asura-ai
+git clone https://github.com/Nakul-pejwar/asura.git
+cd asura
 
 # Install AI dependencies
 pip3 install -r requirements.txt
