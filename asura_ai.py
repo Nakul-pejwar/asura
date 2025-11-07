@@ -19,9 +19,10 @@ import asyncio
 try:
     from langchain_openai import ChatOpenAI
     from langchain_anthropic import ChatAnthropic
-    from langchain_community.llms import Ollama
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema import HumanMessage, SystemMessage
+    from langchain_community.chat_models import Ollama
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     import docker
     HAS_AI = True
 except ImportError:
@@ -308,10 +309,10 @@ class AsuraAI:
         banner = f"""
 {Colors.PURPLE}{Colors.BOLD}
     ___   _____ __  ______  ___     ___    ____
-   /   | / ___// / / / __ \/   |   /   |  /  _/
-  / /| | \__ \/ / / / /_/ / /| |  / /| |  / /  
+   /   | / ___// / / / __ \\/   |  /   |  /  _/
+  / /| | \\__ \\/ / / / /_/ / /| |  / /| |  / /  
  / ___ |___/ / /_/ / _, _/ ___ | / ___ |_/ /   
-/_/  |_/____/\____/_/ |_/_/  |_|/_/  |_/___/   
+/_/  |_/____/\\____/_/ |_/_/  |_|/_/  |_/___/   
                                 
 {Colors.END}{Colors.GREEN}Autonomous AI Reconnaissance Framework{Colors.END}
 {Colors.CYAN}Powered by AI Agents • Built for Bug Bounty Hunters{Colors.END}
