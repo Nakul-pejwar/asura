@@ -329,9 +329,15 @@ class AsuraAI:
         if not silent:
             log.info(f"{Colors.YELLOW}RUNNING: {cmd[:80]}{'...' if len(cmd) > 80 else ''}{Colors.END}")
         try:
-            with open(output_file, 'w') if output_file else subprocess.DEVNULL as f:
+            if output_file:
+                with open(output_file, 'w') as f:
+                    result = subprocess.run(
+                        cmd, shell=True, stdout=f, stderr=subprocess.PIPE,
+                        timeout=1800, text=True
+                    )
+            else:
                 result = subprocess.run(
-                    cmd, shell=True, stdout=f, stderr=subprocess.PIPE,
+                    cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                     timeout=1800, text=True
                 )
             if result.returncode != 0:
@@ -340,6 +346,7 @@ class AsuraAI:
         except Exception as e:
             log.error(f"{Colors.RED}Command execution error: {e}{Colors.END}")
             return False
+
 
     def load_targets(self) -> None:
         if getattr(self, "target", None):
