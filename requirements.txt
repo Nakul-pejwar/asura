@@ -15,7 +15,6 @@ katana
 nuclei
 subfinder
 amass
-waybackurls
 
 # Docker for sandboxed PoCs
 docker>=7.0.0
