@@ -53,8 +53,8 @@ python3 --version
 ### Install Reconnaissance Tools
 ```bash
 # Run the original Asura installer first
-chmod +x install_fixed.sh
-./install_fixed.sh
+chmod +x install.sh
+./install.sh
 
 # This installs: Subfinder, HTTPX, Nuclei, Katana, Amass, etc.
 ```
